@@ -25,7 +25,7 @@ const PRICE = {
   S: 10, // 十
   B: 100, // 百
   Q: 1000, // 千
-  w: 10000 // 万
+  w: 10000, // 万
 };
 
 class Model {
@@ -39,23 +39,26 @@ class Model {
    */
   constructor(property = {}, replacedKeyFromPropertyName = {}) {
     this._attributes = {
-      ...property
+      ...property,
     };
     this.replacedKeyFromPropertyName = {
-      ...replacedKeyFromPropertyName
-    }
+      ...replacedKeyFromPropertyName,
+    };
   }
-  objectWithKeyValues(e) {
+  objectWithKeyValues(e, traverse = false) {
     if (!_isPlainObject(e)) {
-      this.error(`objectWithKeyValues: array dataSource type error`)
+      this.error(`objectWithKeyValues: array dataSource type error`);
     }
-    return this.parse(e)
+    if (traverse) {
+      return this.traverse(e);
+    }
+    return this.parse(e);
   }
-  objectArrayWithKeyValuesArray(data = []) {
+  objectArrayWithKeyValuesArray(data = [], traverse = false) {
     if (_isArray(data)) {
-      return data.map((item) => this.objectWithKeyValues(item))
+      return data.map((item) => this.objectWithKeyValues(item, traverse));
     } else {
-      this.error(`objectArrayWithKeyValuesArray: array dataSource type error`)
+      this.error(`objectArrayWithKeyValuesArray: array dataSource type error`);
     }
   }
   /**
@@ -64,128 +67,125 @@ class Model {
    */
   parse(data = {}) {
     return _mapValues(this._attributes, (attributeType, key) => {
-      let path,
-        format,
-        computed,
-        unit,
-        defaultValue,
-        type
-      const replacedValue = this.replacedKeyFromPropertyName[key]
+      let path, format, computed, unit, defaultValue, type;
+      const replacedValue = this.replacedKeyFromPropertyName[key];
       if (_isPlainObject(attributeType)) {
-        const { _modelTypeKey } = attributeType
+        const { _modelTypeKey } = attributeType;
         if (_modelTypeKey) {
           switch (_modelTypeKey) {
-            case 'valueForPath':
-              {
-                type = new attributeType.type()
-                path = attributeType.path
-                break;
-              }
-            case 'valueWithArray':
-              {
-                type = new Array()
-                break;
-              }
-            case 'valueForPathWithArray':
-              {
-                type = new Array()
-                path = attributeType.path
-                break;
-              }
+            case "valueForPath": {
+              type = new attributeType.type();
+              path = attributeType.path;
+              break;
+            }
+            case "valueWithArray": {
+              type = new Array();
+              break;
+            }
+            case "valueForPathWithArray": {
+              type = new Array();
+              path = attributeType.path;
+              break;
+            }
             default:
               this.error(`modelTypeKey: [${key}] type error`);
               break;
           }
         } else {
-          return new Model(attributeType, replacedValue).objectWithKeyValues(data)
+          return new Model(attributeType, replacedValue).objectWithKeyValues(data);
         }
       } else if (!_isFunction(attributeType)) {
-        this.error(`property: [${key}] type error`)
+        this.error(`property: [${key}] type error`);
       } else {
-        type = new attributeType()
+        type = new attributeType();
       }
 
       if (!replacedValue && !path) {
-        path = key
+        path = key;
       } else if (_isString(replacedValue)) {
-        path = replacedValue
+        path = replacedValue;
       } else if (_isPlainObject(replacedValue)) {
-        path = replacedValue.property || key
-        format = replacedValue.format
-        computed = replacedValue.computed
-        unit = replacedValue.unit
-        defaultValue = replacedValue.defaultValue
+        path = replacedValue.property || key;
+        format = replacedValue.format;
+        computed = replacedValue.computed;
+        unit = replacedValue.unit;
+        defaultValue = replacedValue.defaultValue;
       }
       if (!path) {
-        this.error(`replacedKeyFromPropertyName: [${key}] type error`)
+        this.error(`replacedKeyFromPropertyName: [${key}] type error`);
       }
       if (!type) {
-        this.error(`property: [${key}] type error`)
+        this.error(`property: [${key}] type error`);
       }
 
-      const distValue = this._get({ data, path, computed })
-      const distValueTypeToString = Object
-        .prototype
-        .toString
-        .call(distValue)
-      const attrTypeToString = Object
-        .prototype
-        .toString
-        .call(type)
+      const distValue = this._get({ data, path, computed });
+      const distValueTypeToString = Object.prototype.toString.call(distValue);
+      const attrTypeToString = Object.prototype.toString.call(type);
 
-      let lastValue
+      let lastValue;
 
       if (distValueTypeToString === attrTypeToString || _isArray(path)) {
-        lastValue = this.compose({ distValue, type, unit, format, computed })
+        lastValue = this.compose({ distValue, type, unit, format, computed });
       } else {
-        lastValue = this.getDefaultValue(defaultValue, type)
+        lastValue = this.getDefaultValue(defaultValue, type);
       }
 
       if (_isArray(type)) {
         if (_isPlainObject(attributeType.type)) {
-          return new Model(attributeType.type, replacedValue ? replacedValue.children : undefined).objectArrayWithKeyValuesArray(lastValue)
+          return new Model(
+            attributeType.type,
+            replacedValue ? replacedValue.children : undefined
+          ).objectArrayWithKeyValuesArray(lastValue);
         } else {
-          return this.checkNoObjectChildren({ type: attributeType.type, data: lastValue })
+          return this.checkNoObjectChildren({ type: attributeType.type, data: lastValue });
         }
       } else {
-        return lastValue
+        return lastValue;
       }
-    })
+    });
   }
   checkNoObjectChildren({ type, data }) {
     return data.map((item) => {
-      const instanceType = new type
-      const expectTypeToString = Object
-        .prototype
-        .toString
-        .call(instanceType)
-      const dataTypeToString = Object
-        .prototype
-        .toString
-        .call(item)
+      const instanceType = new type();
+      const expectTypeToString = Object.prototype.toString.call(instanceType);
+      const dataTypeToString = Object.prototype.toString.call(item);
       if (expectTypeToString === dataTypeToString) {
-        return item
+        return item;
       } else {
-        return this.getDefaultValue(undefined, instanceType)
+        return this.getDefaultValue(undefined, instanceType);
       }
-    })
+    });
   }
   /**
    *根据初始定义的模型，反向映射数据
    * @param {*} data 需要转化的数据
    */
   traverse(data = {}) {
-    if (!data)
-      return this;
+    if (!data) return this;
     let object = {};
+
     _mapValues(this._attributes, (attribute, key) => {
-      let path = attribute.property,
-        unit = attribute.unit,
-        type = new attribute.type(),
-        format = attribute.format,
-        sourceValue = data[key];
+      let sourceValue = data[key];
+      let currentAttribute = this.replacedKeyFromPropertyName[key];
+      let path = key;
+      let unit;
+      let format;
+      let type;
+      let traverse;
+
       if (sourceValue) {
-        let value = this.discompose({ sourceValue, unit, key, type });
+        if (typeof currentAttribute === "string") {
+          path = currentAttribute;
+        } else if (currentAttribute) {
+          path = currentAttribute.property;
+          unit = currentAttribute.unit;
+          format = currentAttribute.format;
+          type = new attribute();
+          if (currentAttribute.traverse) {
+            traverse = currentAttribute.traverse;
+          }
+        }
+        let value = this.discompose({ sourceValue, unit, key, type, format, traverse });
         _set(object, path, value);
       }
     });
@@ -199,9 +199,7 @@ class Model {
    */
   compose({ distValue, type, unit, format, computed }) {
     if (unit) {
-      distValue = Number
-        .parseFloat(distValue / PRICE[unit])
-        .toFixed(2);
+      distValue = Number.parseFloat(distValue / PRICE[unit]).toFixed(2);
     }
     if (format) {
       distValue = _manba(parseFloat(distValue)).format(format);
@@ -218,14 +216,21 @@ class Model {
    * @param {*} key
    * @param {*} type
    */
-  discompose({ sourceValue, unit, key, type }) {
+  discompose({ sourceValue, unit, format, key, type, traverse }) {
     if (_isDate(type)) {
       sourceValue = _manba(sourceValue).time();
     }
     if (unit) {
       sourceValue = sourceValue * PRICE[unit];
     }
+    if (unit) {
+      sourceValue = sourceValue * PRICE[unit];
+    }
+
     let value = sourceValue || this.get(key);
+    if (traverse) {
+      return traverse(value);
+    }
     return value;
   }
   /**
@@ -272,7 +277,7 @@ class Model {
     if (defaultValue === undefined) {
       return this.setDefaultValue(type);
     } else {
-      return defaultValue
+      return defaultValue;
     }
   }
   /**
@@ -294,27 +299,27 @@ class Model {
     } else if (_isPlainObject(type)) {
       value = {};
     } else if (_isNull(type)) {
-      value = null
+      value = null;
     }
     return value;
   }
   error(message) {
-    throw new Error(message)
+    throw new Error(message);
   }
 }
 
 const valueForPath = (type, path) => {
-  return { _modelTypeKey: 'valueForPath', type, path }
-}
+  return { _modelTypeKey: "valueForPath", type, path };
+};
 
 const valueWithArray = (type) => {
-  return { _modelTypeKey: 'valueWithArray', type }
-}
+  return { _modelTypeKey: "valueWithArray", type };
+};
 
 const valueForPathWithArray = (type, path) => {
-  return { _modelTypeKey: 'valueForPathWithArray', type, path }
-}
+  return { _modelTypeKey: "valueForPathWithArray", type, path };
+};
 
-export { valueForPath, valueWithArray, valueForPathWithArray }
+export { valueForPath, valueWithArray, valueForPathWithArray };
 
 export default Model;
