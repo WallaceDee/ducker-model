@@ -107,7 +107,7 @@ class Model {
       } else if (_isPlainObject(replacedValue)) {
         path = replacedValue.property || key;
         format = replacedValue.format;
-        computed = replacedValue.computed;
+        computed =replacedValue.computed&&replacedValue.computed.parse?replacedValue.computed.parse:replacedValue.computed
         unit = replacedValue.unit;
         defaultValue = replacedValue.defaultValue;
       }
@@ -181,8 +181,8 @@ class Model {
           unit = currentAttribute.unit;
           format = currentAttribute.format;
           type = new attribute();
-          if (currentAttribute.traverse) {
-            traverse = currentAttribute.traverse;
+          if (currentAttribute.computed&&currentAttribute.computed.traverse) {
+            traverse = currentAttribute.computed.traverse;
           }
         }
         let value = this.discompose({ sourceValue, unit, key, type, format, traverse });
@@ -217,6 +217,7 @@ class Model {
    * @param {*} type
    */
   discompose({ sourceValue, unit, format, key, type, traverse }) {
+    //TODO: discompose先后顺序
     if (_isDate(type)) {
       sourceValue = _manba(sourceValue).time();
     }
@@ -226,7 +227,6 @@ class Model {
     if (unit) {
       sourceValue = sourceValue * PRICE[unit];
     }
-
     let value = sourceValue || this.get(key);
     if (traverse) {
       return traverse(value);
